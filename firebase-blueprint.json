@@ -1,0 +1,168 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Enterprise staff user profile with role and verification state",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "staffId": { "type": "string" },
+        "department": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "role": { "type": "string", "enum": ["USER", "MASTER_ADMIN"] },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"] },
+        "rejectionReason": { "type": "string" },
+        "activeDeviceId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["id", "fullName", "email", "staffId", "department", "role", "status", "createdAt", "updatedAt"]
+    },
+    "AccessRequest": {
+      "title": "AccessRequest",
+      "description": "User access approval application submitted to Master Admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "staffId": { "type": "string" },
+        "department": { "type": "string" },
+        "requestedZones": { "type": "array" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"] },
+        "decisionReason": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "reviewedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "fullName", "email", "staffId", "status", "createdAt", "updatedAt"]
+    },
+    "Device": {
+      "title": "Device",
+      "description": "Single active mobile phone bound to user identity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "deviceModel": { "type": "string" },
+        "platform": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "fingerprint": { "type": "string" },
+        "publicKeyJwk": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "ACTIVE", "BLOCKED", "REVOKED"] },
+        "isReplacementRequest": { "type": "boolean" },
+        "lostReported": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "lastSeenAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "deviceModel", "platform", "status", "createdAt", "updatedAt"]
+    },
+    "Credential": {
+      "title": "Credential",
+      "description": "Cryptographic access profile container (SES-SEC-4.5.5)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "deviceId": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "ACTIVE", "SUSPENDED", "REVOKED", "EXPIRED"] },
+        "applicationIdentifier": { "type": "string" },
+        "keystoreAlias": { "type": "string" },
+        "publicKeyJwk": { "type": "string" },
+        "authorizedZones": { "type": "array" },
+        "issuedAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "revokedAt": { "type": "string", "format": "date-time" },
+        "revokedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "status", "applicationIdentifier", "authorizedZones", "createdAt", "updatedAt"]
+    },
+    "AuthNonce": {
+      "title": "AuthNonce",
+      "description": "Cryptographic challenge nonces for Zero-Trust session validation and replay defense",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nonce": { "type": "string" },
+        "userId": { "type": "string" },
+        "deviceId": { "type": "string" },
+        "status": { "type": "string", "enum": ["ACTIVE", "BURNED", "EXPIRED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "nonce", "userId", "status", "createdAt", "expiresAt"]
+    },
+    "AccessLog": {
+      "title": "AccessLog",
+      "description": "Audit trail log of all authentication and administrative actions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "actorId": { "type": "string" },
+        "actorEmail": { "type": "string" },
+        "action": { "type": "string" },
+        "targetType": { "type": "string" },
+        "targetId": { "type": "string" },
+        "previousStatus": { "type": "string" },
+        "newStatus": { "type": "string" },
+        "result": { "type": "string" },
+        "reason": { "type": "string" },
+        "details": { "type": "string" },
+        "ipAddress": { "type": "string" },
+        "simulated": { "type": "boolean" }
+      },
+      "required": ["id", "timestamp", "actorId", "action", "targetType"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System notices and approval decisions dispatched to user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["APPROVAL", "REJECTION", "SUSPENSION", "SECURITY", "SYSTEM"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "message", "type", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles managed with strict RBAC"
+    },
+    "/accessRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/AccessRequest" },
+      "description": "Access approval requests"
+    },
+    "/devices/{deviceId}": {
+      "schema": { "$ref": "#/entities/Device" },
+      "description": "Mobile devices registered for access"
+    },
+    "/credentials/{credentialId}": {
+      "schema": { "$ref": "#/entities/Credential" },
+      "description": "Cryptographic credentials"
+    },
+    "/accessLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AccessLog" },
+      "description": "Immutable audit log entries"
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "User in-app notifications"
+    }
+  }
+}

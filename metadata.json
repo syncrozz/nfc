@@ -1,0 +1,8 @@
+{
+  "name": "NFC Mobile Access",
+  "description": "Enterprise mobile access platform with NFC capability detection, MIFARE Classic compatibility analysis, and credential abstraction for KPMBP facilities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

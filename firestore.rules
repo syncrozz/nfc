@@ -1,0 +1,124 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // High-security check for Master Admin role:
+    // 1. Primary: Cryptographically signed Custom Claim `token.admin == true` or `token.role == 'MASTER_ADMIN'`
+    // 2. Authoritative Document check in /users/{uid} with role == 'MASTER_ADMIN' and status == 'APPROVED'
+    function isMasterAdmin() {
+      return isAuthenticated() && (
+        (request.auth.token.admin == true) ||
+        (request.auth.token.role == 'MASTER_ADMIN') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'MASTER_ADMIN' &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'APPROVED')
+      );
+    }
+
+    // 1. /users/{userId}
+    match /users/{userId} {
+      // User can read their own profile; Master Admin can read all users
+      allow read: if isOwner(userId) || isMasterAdmin();
+
+      // New user registration:
+      // Mandatory security constraint: normal user MUST start as PENDING, role must be USER
+      allow create: if isOwner(userId) &&
+        request.resource.data.id == userId &&
+        request.resource.data.role == 'USER' &&
+        request.resource.data.status == 'PENDING';
+
+      // User updating their own profile:
+      // CANNOT alter their own role, status, activeDeviceId, or rejectionReason
+      allow update: if (isOwner(userId) &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.status == resource.data.status &&
+        request.resource.data.id == resource.data.id &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'activeDeviceId', 'rejectionReason']))
+        || isMasterAdmin();
+
+      allow delete: if isMasterAdmin();
+    }
+
+    // 2. /accessRequests/{requestId}
+    match /accessRequests/{requestId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isMasterAdmin();
+
+      // User can submit a request for themselves, strictly as PENDING
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'PENDING';
+
+      // Only Master Admin can approve, reject or suspend an access request
+      allow update: if isMasterAdmin();
+
+      allow delete: if isMasterAdmin();
+    }
+
+    // 3. /devices/{deviceId}
+    match /devices/{deviceId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isMasterAdmin();
+
+      // User registers current device; starts as PENDING until reviewed or active
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        (request.resource.data.status == 'PENDING' || request.resource.data.status == 'ACTIVE');
+
+      // User can update lastSeenAt or report lost/replacement; cannot change status to ACTIVE without Admin
+      allow update: if (isAuthenticated() && resource.data.userId == request.auth.uid &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status']) ||
+         request.resource.data.status == 'REVOKED')) || isMasterAdmin();
+
+      allow delete: if isMasterAdmin();
+    }
+
+    // 4. /credentials/{credentialId}
+    match /credentials/{credentialId} {
+      // Read access only for credential owner or admin
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isMasterAdmin();
+
+      // ONLY Master Admin can create, modify, or revoke credentials
+      allow create, update, delete: if isMasterAdmin();
+    }
+
+    // 5. /accessLogs/{logId}
+    match /accessLogs/{logId} {
+      // Admins read all logs; users can read logs where they are the actor or target
+      allow read: if isMasterAdmin() ||
+        (isAuthenticated() && (resource.data.actorId == request.auth.uid || resource.data.targetId == request.auth.uid));
+
+      // SES-SEC-4.5.5: Audit logs are strictly server-created.
+      // Direct client creation, modification, or deletion is strictly forbidden.
+      allow create, update, delete: if false;
+    }
+
+    // 6. /_idempotencyKeys/{key}
+    match /_idempotencyKeys/{key} {
+      // Internal server-only idempotency and replay-attack prevention store
+      allow read, write: if false;
+    }
+
+    // 7. /_authNonces/{nonceId}
+    match /_authNonces/{nonceId} {
+      // Internal server-only challenge nonces store for Zero-Trust replay attack prevention
+      allow read, write: if false;
+    }
+
+    // 8. /notifications/{notificationId}
+    match /notifications/{notificationId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isMasterAdmin();
+      allow create: if isMasterAdmin() || (isAuthenticated() && request.resource.data.userId == request.auth.uid);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isMasterAdmin();
+    }
+  }
+}

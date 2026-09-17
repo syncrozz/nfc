@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">SYNCROZZ NFC</string>
+    <string name="hce_service_desc">SYNCROZZ SES v4.5 Host Card Emulation Access Service</string>
+</resources>

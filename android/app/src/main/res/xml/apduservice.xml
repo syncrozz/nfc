@@ -1,0 +1,9 @@
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/hce_service_desc"
+    android:requireDeviceUnlock="false">
+    <aid-group android:description="@string/hce_service_desc"
+               android:category="other">
+        <!-- SES v4.5 Proprietary Application Identifier (AID) -->
+        <aid-filter android:name="A0000008410001"/>
+    </aid-group>
+</host-apdu-service>
