@@ -47,7 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="text-white font-bold tracking-tight text-base sm:text-lg">SYNCROZZ</span>
+                <span className="text-white font-bold tracking-tight text-base sm:text-lg">NFC Mobile Access</span>
                 <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700 font-mono">
                   SES v4.5
                 </span>

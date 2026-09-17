@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../services/AuthContext';
-import { Shield, Lock, Mail, User, Phone, Building, KeyRound, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Shield, Lock, Mail, User, Phone, Building, KeyRound, AlertCircle, ArrowRight, CheckCircle2, Copy, Check, Globe, ExternalLink } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -20,8 +20,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   const [department, setDepartment] = useState('Jabatan Pengkomputeran & Sains');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [localSuccess, setLocalSuccess] = useState<string | null>(null);
+  const [copiedDomain, setCopiedDomain] = useState(false);
 
   if (!isOpen) return null;
+
+  const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isUnauthorizedDomain = error?.includes('Authorized Domains') || error?.includes('unauthorized-domain');
+
+  const copyCurrentDomain = () => {
+    if (currentHostname) {
+      navigator.clipboard.writeText(currentHostname);
+      setCopiedDomain(true);
+      setTimeout(() => setCopiedDomain(false), 2500);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +88,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               <h3 className="text-base font-bold text-white tracking-wide">
                 {mode === 'login' ? 'Log Masuk Staf KPMBP' : 'Pendaftaran Pengguna Baharu'}
               </h3>
-              <p className="text-xs text-slate-400">SYNCROZZ Mobile Access • SES v4.5 Zero-Trust</p>
+              <p className="text-xs text-slate-400">NFC Mobile Access • SES v4.5 Zero-Trust</p>
             </div>
           </div>
           <button
@@ -90,10 +102,55 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         {/* Modal Body */}
         <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
           {/* Error Banner */}
-          {error && (
+          {error && !isUnauthorizedDomain && (
             <div className="bg-rose-950/60 border border-rose-800/70 text-rose-300 text-xs p-3 rounded-xl flex items-start space-x-2">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {/* Specialized Domain Whitelist Banner when auth/unauthorized-domain occurs */}
+          {error && isUnauthorizedDomain && (
+            <div className="bg-amber-950/60 border border-amber-800/80 rounded-xl p-3.5 text-xs text-amber-200 space-y-2.5">
+              <div className="flex items-start space-x-2 font-semibold text-amber-300">
+                <Globe className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <span>Domain Belum Dibenarkan untuk Google Sign-In</span>
+              </div>
+              <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                Google OAuth memerlukan domain pelayan semasa didaftarkan ke dalam Firebase Console.
+              </p>
+              <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-2 flex items-center justify-between gap-2">
+                <span className="font-mono text-[11px] text-slate-300 truncate select-all">
+                  {currentHostname || 'ais-dev-phzw66kprlmqmgf6nca3ov-196785498035.asia-east1.run.app'}
+                </span>
+                <button
+                  type="button"
+                  onClick={copyCurrentDomain}
+                  className="flex items-center space-x-1 px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded text-[10px] font-medium transition shrink-0"
+                >
+                  {copiedDomain ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-400" />
+                      <span className="text-emerald-300">Disalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>Salin Domain</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <div className="text-[10px] text-slate-300 space-y-1 bg-slate-900/80 p-2 rounded border border-slate-800/80">
+                <div className="font-medium text-amber-300">Langkah Pengaktifan Google Sign-In:</div>
+                <ol className="list-decimal list-inside space-y-0.5 text-slate-400">
+                  <li>Buka Firebase Console &gt; Authentication &gt; Settings &gt; Authorized domains</li>
+                  <li>Klik <strong>Add domain</strong> dan tampal domain yang disalin di atas</li>
+                </ol>
+                <div className="pt-1 text-emerald-400 font-medium">
+                  Atau: Anda boleh terus mendaftar / log masuk menggunakan <strong>Email &amp; Kata Laluan</strong> di bawah serta-merta tanpa perlu sebarang konfigurasi!
+                </div>
+              </div>
             </div>
           )}
 

@@ -44,11 +44,19 @@ export function handleFirebaseError(error: unknown, contextMsg: string): string 
       case 'auth/invalid-credential':
         return 'Email atau kata laluan tidak sah. Sila semak semula maklumat anda.';
       case 'auth/email-already-in-use':
-        return 'Email ini telah didaftarkan dalam sistem SYNCROZZ KPMBP.';
+        return 'Email ini telah didaftarkan dalam sistem NFC Mobile Access KPMBP.';
       case 'auth/weak-password':
         return 'Kata laluan terlalu lemah. Gunakan sekurang-kurangnya 6 aksara.';
       case 'auth/invalid-email':
         return 'Format alamat email tidak sah.';
+      case 'auth/unauthorized-domain': {
+        const domain = typeof window !== 'undefined' ? window.location.hostname : 'domain ini';
+        return `Domain '${domain}' belum didaftarkan dalam senarai Authorized Domains Firebase Authentication. Sila tambah domain ini di Firebase Console (Authentication > Settings > Authorized domains), atau daftar/log masuk menggunakan Email Rasmi & Kata Laluan di bawah.`;
+      }
+      case 'auth/popup-closed-by-user':
+        return 'Tetingkap log masuk Google telah ditutup sebelum pengesahan selesai.';
+      case 'auth/cancelled-popup-request':
+        return 'Permintaan tetingkap log masuk Google telah dibatalkan.';
       case 'permission-denied':
         return 'Akses disekat: Kebenaran ditolak oleh Firestore Security Rules (SES-SEC-4.5.5).';
       case 'unavailable':
