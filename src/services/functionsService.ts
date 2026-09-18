@@ -11,6 +11,16 @@ export interface ServerActionResponse {
   logId?: string;
 }
 
+const CLOUD_RUN_BACKEND_URL = 'https://ais-pre-phzw66kprlmqmgf6nca3ov-196785498035.asia-east1.run.app';
+
+function resolveApiUrl(endpoint: string): string {
+  const customBase = (import.meta as any).env?.VITE_API_BASE_URL;
+  if (customBase) {
+    return `${customBase.replace(/\/$/, '')}${endpoint}`;
+  }
+  return endpoint;
+}
+
 /**
  * Service to execute sensitive administrative actions via Server-Side Authorization
  * Adheres strictly to SES-SEC-4.5.5 Zero-Trust principles
@@ -59,20 +69,80 @@ class FunctionsService {
     return headers;
   }
 
+  private async executeRequest(endpoint: string, init?: RequestInit): Promise<any> {
+    const url = resolveApiUrl(endpoint);
+    let res: Response;
+
+    try {
+      res = await fetch(url, init);
+    } catch (networkErr: any) {
+      // Fallback for static frontend domains where relative /api isn't reachable
+      if (typeof window !== 'undefined' && !url.startsWith('http') && window.location.hostname !== 'localhost') {
+        try {
+          res = await fetch(`${CLOUD_RUN_BACKEND_URL}${endpoint}`, init);
+        } catch {
+          throw new Error(`Ralat sambungan rangkaian ke pelayan: ${networkErr?.message || 'Gagal menghubungi backend.'}`);
+        }
+      } else {
+        throw new Error(`Ralat sambungan rangkaian ke pelayan: ${networkErr?.message || 'Gagal menghubungi backend.'}`);
+      }
+    }
+
+    // Check if 404 was returned on relative url (e.g. Vercel missing backend rewrite)
+    if (res.status === 404 && typeof window !== 'undefined' && !url.startsWith('http') && window.location.hostname !== 'localhost') {
+      try {
+        const fallbackRes = await fetch(`${CLOUD_RUN_BACKEND_URL}${endpoint}`, init);
+        if (fallbackRes.ok || fallbackRes.status !== 404) {
+          res = fallbackRes;
+        }
+      } catch {
+        // Continue with original response
+      }
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || `Ralat pelayan (${res.status}): ${data.error || 'Operasi gagal.'}`);
+      }
+      return data;
+    }
+
+    // Non-JSON response (e.g. HTML 404 / 502 from CDN/hosting proxy)
+    const rawText = await res.text();
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error(
+          `Ralat pelayan (404 Not Found): Laluan '${endpoint}' tidak dijumpai pada domain ${
+            typeof window !== 'undefined' ? window.location.hostname : 'semasa'
+          }. Sila pastikan pelayan backend Express sedang aktif atau konfigurasi vercel.json rewrite telah digunakan.`
+        );
+      }
+      throw new Error(`Ralat pelayan (${res.status}): Respons bukan JSON diterima daripada pelayan (${rawText.slice(0, 100)}...).`);
+    }
+
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      return { success: true, text: rawText };
+    }
+  }
+
   private async post(endpoint: string, body: any, idempotencyKey?: string): Promise<ServerActionResponse> {
     const headers = await this.getHeaders(idempotencyKey);
-    const res = await fetch(endpoint, {
+    return this.executeRequest(endpoint, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
     });
+  }
 
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.message || `Ralat pelayan (${res.status}): ${data.error || 'Operasi gagal.'}`);
-    }
-
-    return data;
+  private async get(endpoint: string, headers?: HeadersInit): Promise<any> {
+    return this.executeRequest(endpoint, {
+      method: 'GET',
+      headers,
+    });
   }
 
   /**
@@ -118,11 +188,7 @@ class FunctionsService {
    */
   async checkBootstrapStatus(): Promise<{ masterAdminExists: boolean; canBootstrap: boolean; totalAdmins: number }> {
     try {
-      const res = await fetch('/api/admin/bootstrap-status');
-      if (!res.ok) {
-        return { masterAdminExists: true, canBootstrap: false, totalAdmins: 1 };
-      }
-      return await res.json();
+      return await this.executeRequest('/api/admin/bootstrap-status');
     } catch {
       return { masterAdminExists: true, canBootstrap: false, totalAdmins: 1 };
     }
@@ -220,13 +286,7 @@ class FunctionsService {
   }> {
     try {
       const headers = await this.getHeaders();
-      const res = await fetch('/api/admin/session-status', {
-        headers,
-      });
-      if (!res.ok) {
-        return { hasElevatedSession: false, reason: 'HTTP_ERROR' };
-      }
-      const data = await res.json();
+      const data = await this.get('/api/admin/session-status', headers);
       if (!data.hasElevatedSession) {
         this.setElevatedSessionToken(null);
       }
@@ -325,12 +385,7 @@ class FunctionsService {
     status: string;
   }> {
     const headers = await this.getHeaders();
-    const res = await fetch('/api/credentials/my-credential', { headers });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Gagal mengambil status kredensial.');
-    }
-    return res.json();
+    return this.get('/api/credentials/my-credential', headers);
   }
 
   /**
@@ -388,12 +443,7 @@ class FunctionsService {
    */
   async getDoorAuditHistory(doorId: string): Promise<{ doorId: string; auditEntries: any[] }> {
     const headers = await this.getHeaders();
-    const res = await fetch(`/api/admin/doors/${doorId}/audit-history`, { headers });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Gagal mengambil sejarah audit pintu.');
-    }
-    return res.json();
+    return this.get(`/api/admin/doors/${doorId}/audit-history`, headers);
   }
 
   /**
@@ -401,12 +451,7 @@ class FunctionsService {
    */
   async getZones(): Promise<{ zones: any[] }> {
     const headers = await this.getHeaders();
-    const res = await fetch('/api/admin/zones', { headers });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Gagal mengambil senarai zon kampus.');
-    }
-    return res.json();
+    return this.get('/api/admin/zones', headers);
   }
 
   /**
@@ -414,12 +459,7 @@ class FunctionsService {
    */
   async getZone(zoneId: string): Promise<{ zone: any; doors: any[] }> {
     const headers = await this.getHeaders();
-    const res = await fetch(`/api/admin/zones/${zoneId}`, { headers });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || `Gagal mengambil maklumat zon ${zoneId}.`);
-    }
-    return res.json();
+    return this.get(`/api/admin/zones/${zoneId}`, headers);
   }
 
   /**
@@ -472,12 +512,7 @@ class FunctionsService {
    */
   async getZoneAuditHistory(zoneId: string): Promise<{ zoneId: string; auditEntries: any[] }> {
     const headers = await this.getHeaders();
-    const res = await fetch(`/api/admin/zones/${zoneId}/audit-history`, { headers });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Gagal mengambil sejarah audit zon.');
-    }
-    return res.json();
+    return this.get(`/api/admin/zones/${zoneId}/audit-history`, headers);
   }
 
   /**
@@ -513,12 +548,7 @@ class FunctionsService {
    */
   async getAccessGroups(): Promise<{ success: boolean; accessGroups: AccessGroup[] }> {
     const headers = await this.getHeaders();
-    const res = await fetch('/api/admin/access-groups', { headers });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Gagal mengambil senarai kumpulan akses.');
-    }
-    return res.json();
+    return this.get('/api/admin/access-groups', headers);
   }
 
   /**
@@ -532,12 +562,7 @@ class FunctionsService {
     zones: any[];
   }> {
     const headers = await this.getHeaders();
-    const res = await fetch(`/api/admin/access-groups/${groupId}`, { headers });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Gagal mengambil maklumat kumpulan akses.');
-    }
-    return res.json();
+    return this.get(`/api/admin/access-groups/${groupId}`, headers);
   }
 
   /**
@@ -665,12 +690,7 @@ class FunctionsService {
    */
   async getAccessGroupAuditHistory(groupId: string): Promise<{ groupId: string; auditEntries: any[] }> {
     const headers = await this.getHeaders();
-    const res = await fetch(`/api/admin/access-groups/${groupId}/audit-history`, { headers });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Gagal mengambil sejarah audit kumpulan akses.');
-    }
-    return res.json();
+    return this.get(`/api/admin/access-groups/${groupId}/audit-history`, headers);
   }
 }
 
