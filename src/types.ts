@@ -127,20 +127,109 @@ export interface ReaderInteractionStep {
 // ==========================================
 
 export type UserRole = 'USER' | 'MASTER_ADMIN';
-export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
-export type DeviceStatus = 'PENDING' | 'ACTIVE' | 'BLOCKED' | 'REVOKED';
+export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'DEACTIVATED';
+export type DeviceStatus = 'PENDING' | 'APPROVED' | 'ACTIVE' | 'BLOCKED' | 'REVOKED';
 
 export interface AppUser {
   id: string; // Firebase Auth UID
   fullName: string;
   email: string;
   staffId: string; // Nombor staf / ID organisasi KPMBP
+  organization: string; // Organisasi e.g. Kolej Profesional MARA Bandar Penawar
   department: string; // Jabatan atau unit
   phoneNumber: string;
   role: UserRole;
   status: UserStatus;
   rejectionReason?: string;
   activeDeviceId?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export type DoorOperationalStatus = 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'LOCKDOWN';
+export type DoorIntegrationStatus = 'VERIFIED' | 'SIMULATED' | 'UNKNOWN' | 'HARDWARE_VERIFICATION_REQUIRED';
+
+export type ZoneStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface CampusZone {
+  id?: string;
+  zoneId: string;
+  zoneName: string;
+  zoneCode: string;
+  description: string;
+  building: string;
+  floor: string;
+  location: string;
+  assignedDoors: string[];
+  status: ZoneStatus;
+  isActive: boolean;
+  securityLevel?: 'LOW' | 'MEDIUM' | 'HIGH' | 'RESTRICTED';
+  assignedDoorCount?: number;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export interface Door {
+  id: string;
+  doorId: string; // SES v4.5 explicit door identifier
+  doorName: string; // Formal door name
+  name: string; // Backward compatibility alias
+  building: string;
+  floor: string;
+  location: string;
+  zoneId: string;
+  zoneName?: string;
+  readerType: string;
+  controllerType: string;
+  isOnline: boolean;
+  integrationStatus: DoorIntegrationStatus;
+  operationalStatus: DoorOperationalStatus;
+  isActive: boolean; // Backward compatibility alias
+  assignedAccessGroups: string[]; // List of assigned AccessGroup IDs
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export type AccessGroupStatus = 'ACTIVE' | 'INACTIVE';
+export type AccessGroupType = 'STUDENT' | 'STAFF' | 'FACULTY' | 'CONTRACTOR' | 'SECURITY' | 'CUSTOM' | string;
+
+export interface AllowedSchedule {
+  daysOfWeek: number[]; // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  startTime: string; // e.g. "08:00"
+  endTime: string;   // e.g. "18:00"
+  timezone?: string;
+}
+
+export interface AccessGroup {
+  id: string; // Document ID / alias for groupId
+  groupId: string;
+  groupName: string;
+  name?: string; // alias for groupName
+  description: string;
+  groupType: AccessGroupType;
+  assignedUsers: string[]; // List of user UIDs or emails
+  assignedDoors: string[]; // List of door IDs
+  assignedZones: string[]; // List of zone IDs
+  allowedSchedule?: AllowedSchedule;
+  timeRestrictions?: {
+    startTime: string;
+    endTime: string;
+    daysOfWeek: number[];
+  };
+  validFrom?: string;
+  validUntil?: string;
+  validityPeriod?: {
+    validFrom: string;
+    validUntil: string;
+  };
+  status: AccessGroupStatus;
+  isActive?: boolean;
   createdAt: string;
   updatedAt: string;
   createdBy?: string;

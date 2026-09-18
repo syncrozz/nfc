@@ -120,5 +120,23 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isMasterAdmin();
     }
+
+    // 9. /doors/{doorId}
+    match /doors/{doorId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isMasterAdmin();
+    }
+
+    // 10. /accessGroups/{groupId}
+    match /accessGroups/{groupId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isMasterAdmin();
+    }
+
+    // 11. /zones/{zoneId}
+    match /zones/{zoneId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isMasterAdmin();
+    }
   }
 }

@@ -9,10 +9,11 @@
         "fullName": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "staffId": { "type": "string" },
+        "organization": { "type": "string" },
         "department": { "type": "string" },
         "phoneNumber": { "type": "string" },
         "role": { "type": "string", "enum": ["USER", "MASTER_ADMIN"] },
-        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"] },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED", "SUSPENDED", "DEACTIVATED"] },
         "rejectionReason": { "type": "string" },
         "activeDeviceId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
@@ -55,7 +56,7 @@
         "userAgent": { "type": "string" },
         "fingerprint": { "type": "string" },
         "publicKeyJwk": { "type": "string" },
-        "status": { "type": "string", "enum": ["PENDING", "ACTIVE", "BLOCKED", "REVOKED"] },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "ACTIVE", "BLOCKED", "REVOKED"] },
         "isReplacementRequest": { "type": "boolean" },
         "lostReported": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" },
@@ -137,6 +138,39 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "userId", "title", "message", "type", "read", "createdAt"]
+    },
+    "Door": {
+      "title": "Door",
+      "description": "Physical access control door, reader, and controller hardware profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "location": { "type": "string" },
+        "readerType": { "type": "string" },
+        "controllerType": { "type": "string" },
+        "isOnline": { "type": "boolean" },
+        "integrationStatus": { "type": "string", "enum": ["VERIFIED", "SIMULATED", "UNKNOWN", "HARDWARE_VERIFICATION_REQUIRED"] },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "location", "readerType", "controllerType", "isOnline", "integrationStatus", "isActive", "createdAt", "updatedAt"]
+    },
+    "AccessGroup": {
+      "title": "AccessGroup",
+      "description": "Role and zone based access control group with door permissions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "assignedUsers": { "type": "array" },
+        "assignedDoors": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "description", "assignedUsers", "assignedDoors", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -163,6 +197,14 @@
     "/notifications/{notificationId}": {
       "schema": { "$ref": "#/entities/Notification" },
       "description": "User in-app notifications"
+    },
+    "/doors/{doorId}": {
+      "schema": { "$ref": "#/entities/Door" },
+      "description": "Door access controllers and readers"
+    },
+    "/accessGroups/{groupId}": {
+      "schema": { "$ref": "#/entities/AccessGroup" },
+      "description": "Authoritative access groups"
     }
   }
 }

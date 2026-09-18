@@ -51,10 +51,14 @@ interface AuthContextType {
   adminRejectUser: (targetUserId: string, reason: string, targetRequestId?: string) => Promise<void>;
   adminSuspendUser: (targetUserId: string, reason: string) => Promise<void>;
   adminReactivateUser: (targetUserId: string) => Promise<void>;
+  adminDeactivateUser: (targetUserId: string, reason?: string) => Promise<void>;
   adminActivateDevice: (deviceId: string, userId: string) => Promise<void>;
   adminRevokeDevice: (deviceId: string, reason?: string) => Promise<void>;
   adminRevokeCredential: (credentialId: string, reason?: string) => Promise<void>;
   adminAssignRole: (targetUserId: string, newRole: 'USER' | 'MASTER_ADMIN') => Promise<void>;
+  bootstrapFirstMasterAdmin: () => Promise<void>;
+  masterAdminExists: boolean;
+  checkBootstrapStatus: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -63,10 +67,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [isMasterAdmin, setIsMasterAdmin] = useState<boolean>(false);
+  const [masterAdminExists, setMasterAdminExists] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const clearError = () => setError(null);
+
+  const checkBootstrapStatus = async (): Promise<boolean> => {
+    try {
+      const status = await serverFunctions.checkBootstrapStatus();
+      setMasterAdminExists(status.masterAdminExists);
+      return status.canBootstrap;
+    } catch {
+      return false;
+    }
+  };
 
   // Authoritative user profile fetcher
   const fetchUserProfile = async (user: FirebaseUser): Promise<AppUser | null> => {
@@ -148,6 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         staffId: staffId.trim().toUpperCase(),
         department: department.trim(),
         phoneNumber: phoneNumber.trim(),
+        organization: 'Kolej Profesional MARA Bandar Penawar (KPMBP)',
         role: 'USER', // Strict default: cannot self-assign MASTER_ADMIN
         status: 'PENDING', // Strict default: cannot self-approve
         createdAt: nowIso,
@@ -262,6 +278,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           staffId: 'STAFF-PENDING',
           department: 'Akademik / Pengurusan',
           phoneNumber: cred.user.phoneNumber || '-',
+          organization: 'Kolej Profesional MARA Bandar Penawar (KPMBP)',
           role: 'USER',
           status: 'PENDING',
           createdAt: nowIso,
@@ -428,6 +445,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await serverFunctions.reactivateUser(targetUserId);
   };
 
+  const adminDeactivateUser = async (targetUserId: string, reason?: string) => {
+    if (!currentUser || !isMasterAdmin) {
+      throw new Error('SES-SEC-4.5.5: Hanya Master Admin yang dibenarkan menyahaktifkan pengguna.');
+    }
+    await serverFunctions.deactivateUser(targetUserId, reason);
+  };
+
+  const bootstrapFirstMasterAdmin = async () => {
+    if (!currentUser) {
+      throw new Error('SES-SEC-4.5.5: Sila log masuk akaun terlebih dahulu untuk menjalankan bootstrap.');
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      await serverFunctions.bootstrapFirstAdmin();
+      await currentUser.getIdToken(true);
+      await refreshUserProfile();
+      await checkBootstrapStatus();
+    } catch (err: any) {
+      setError(err.message || 'Gagal menjalankan bootstrap Master Admin.');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const adminActivateDevice = async (deviceId: string, userId: string) => {
     if (!currentUser || !isMasterAdmin) {
       throw new Error('SES-SEC-4.5.5: Hanya Master Admin yang dibenarkan mengaktifkan peranti.');
@@ -481,10 +524,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         adminRejectUser,
         adminSuspendUser,
         adminReactivateUser,
+        adminDeactivateUser,
         adminActivateDevice,
         adminRevokeDevice,
         adminRevokeCredential,
         adminAssignRole,
+        bootstrapFirstMasterAdmin,
+        masterAdminExists,
+        checkBootstrapStatus,
       }}
     >
       {children}
